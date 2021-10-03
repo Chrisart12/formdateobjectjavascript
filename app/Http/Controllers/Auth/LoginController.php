@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\User;
 use App\Http\Controllers\Controller;
 use App\Providers\RouteServiceProvider;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Foundation\Auth\AuthenticatesUsers;
 
 class LoginController extends Controller
 {
@@ -45,10 +46,10 @@ class LoginController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function redirectToProvider()
+    public function redirectToProvider($provider)
     {
         
-        return Socialite::driver('github')->redirect();
+        return Socialite::driver($provider)->redirect();
     }
 
     /**
@@ -56,13 +57,37 @@ class LoginController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function handleProviderCallback()
+    public function handleProviderCallback($provider)
     {
-        
-        $user = Socialite::driver('github')->user();
-       
-        dd($user);
+        // $user = Socialite::driver($provider)->stateless->user(); stateless for API
+        $user = Socialite::driver($provider)->user();
+        // dd($user);
+        // dd($user->getNickname());
 
+        // On vérifie si le mail existe déjà ou pas
+        $existingUser = User::whereEmail($user->getEmail())->first();
+       
+        // Si le mail existe déjà, on connecte l'utilisateur et on fait une redirection
+        if ($existingUser) {
+            auth()->login($existingUser);
+            return redirect($this->redirectPath());
+        } else {
+
+            $new_user = User::create([
+                'name' => $user->getName(),
+                'email' => $user->getEmail(),
+                'password' => bcrypt('bonheur1'),
+            ]);
+    
+            $existingUser = User::whereEmail($user->getEmail())->first();
+
+            auth()->login($new_user);
+    
+            return redirect($this->redirectPath());
+        }
+
+        
+        
         // $user->token;
     }
 }
